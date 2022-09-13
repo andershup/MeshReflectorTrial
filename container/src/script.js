@@ -34,11 +34,23 @@ const scene = new THREE.Scene()
 const axesHelper = new THREE.AxesHelper( 5 );
 scene.add( axesHelper );
 
+const cubeTextureLoader = new THREE.CubeTextureLoader()
+const environmentMap = cubeTextureLoader.load([
+    '/textures/enviromentMap/1/px.jpg',
+    '/textures/enviromentMap/1/nx.jpg',
+    '/textures/enviromentMap/1/py.jpg',
+    '/textures/enviromentMap/1/ny.jpg',
+    '/textures/enviromentMap/1/pz.jpg',
+    '/textures/enviromentMap/1/nz.jpg'
+])
+scene.background = environmentMap
+console.log(environmentMap)
 /**
  * Loaders
  */
 // Texture loader
 const textureLoader = new THREE.TextureLoader()
+
 
 const graniteDifuse = textureLoader.load('./textures/reflecting-material/Granite08large_MR_1K/Granite08large_1K_BaseColor.png')
 const graniteRoughness = textureLoader.load('./textures/reflecting-material/Granite08large_MR_1K/Granite08large_1K_Roughness.png')
@@ -106,6 +118,7 @@ const portal = new THREE.Mesh(
     new THREE.MeshStandardMaterial({
         color: 'white',
         emissive: 'white',
+        envMap: environmentMap
 
     })
 )
@@ -118,20 +131,56 @@ scene.add(portal)
 /**
  * Lights
  */
-// const ambientLight = new THREE.AmbientLight(0xffffff, 0.8)
-// scene.add(ambientLight)
 
-// const directionalLight = new THREE.DirectionalLight(0xffffff, 0.1)
-// directionalLight.castShadow = true
-// directionalLight.shadow.mapSize.set(1024, 1024)
-// directionalLight.shadow.camera.far = 15
-// directionalLight.shadow.camera.left = - 7
-// directionalLight.shadow.camera.top = 7
-// directionalLight.shadow.camera.right = 7
-// directionalLight.shadow.camera.bottom = - 7
-// directionalLight.position.set(5, 5, 5)
-// scene.add(directionalLight)
 
+
+const ambientLight = new THREE.AmbientLight(0xffffff, 0.8)
+scene.add(ambientLight)
+
+const directionalLight = new THREE.DirectionalLight(0xffffff, 0.1)
+directionalLight.castShadow = true
+directionalLight.shadow.mapSize.set(1024, 1024)
+directionalLight.shadow.camera.far = 15
+directionalLight.shadow.camera.left = - 7
+directionalLight.shadow.camera.top = 7
+directionalLight.shadow.camera.right = 7
+directionalLight.shadow.camera.bottom = - 7
+directionalLight.position.set(5, 5, 5)
+scene.add(directionalLight)
+
+
+
+function lightsGUI() {
+    if(debug) {
+        const lightsFolder = gui.addFolder('Lights')
+        lightsFolder.add(directionalLight, 'intensity').min(0).max(10).step(0.01).name('lightIntensity')
+        lightsFolder.add(directionalLight.position, 'x').min(-5).max(5).step(0.001).name('lightDirectionX')
+        lightsFolder.add(directionalLight.position, 'y').min(-5).max(5).step(0.001).name('lightDirectionY')
+        lightsFolder.add(directionalLight.position, 'z').min(-5).max(5).step(0.001).name('lightDirectionZ')
+      
+
+    }
+}
+
+function addReflectorGUI2(){
+    if (debug){
+        const reflectorFolder2 = gui.addFolder('Reflector2')
+        reflectorFolder2.add(floor.material, 'roughness').min(0).max(2).step(0.001)
+        reflectorFolder2.add(floor.material, 'envMapIntensity').min(0).max(2).step(0.001)
+        reflectorFolder2.add(floor.material, 'emissiveIntensity').min(0).max(2).step(0.001)
+        reflectorFolder2.add(floor.material, 'metalness').min(0).max(2).step(0.001)
+        // reflectorFolder2.addColor(floor.material, 'color')
+        reflectorFolder2.add(floor.material.reflectorProps, 'mixBlur').min(0).max(7).step(0.001)
+        reflectorFolder2.add(floor.material.reflectorProps, 'mixStrength').min(0).max(200).step(0.001)
+        reflectorFolder2.add(floor.material.reflectorProps, 'depthScale').min(0).max(20).step(0.1)
+        reflectorFolder2.add(floor.material.reflectorProps, 'mixContrast').min(0).max(7).step(0.001)
+        reflectorFolder2.add(floor.material.reflectorProps, 'minDepthThreshold').min(0).max(7).step(0.001)
+        reflectorFolder2.add(floor.material.reflectorProps, 'depthToBlurRatioBias').min(0).max(7).step(0.001)
+        reflectorFolder2.add(floor.material.reflectorProps, 'maxDepthThreshold').min(-5).max(7).step(0.001).onChange(function(){
+            floor.material.needsUpdate = true;
+        })
+    }
+}
 /**
  * Sizes
  */
@@ -174,11 +223,13 @@ controls.enableDamping = true
 const renderer = new THREE.WebGLRenderer({
     canvas: canvas
 })
+renderer.physicallyCorrectLights = true
 renderer.shadowMap.enabled = true
 renderer.shadowMap.type = THREE.PCFSoftShadowMap
 renderer.setSize(sizes.width, sizes.height)
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
 
+lightsGUI()
 
 const floorOriginalMaterial = floor.material;
 
@@ -186,18 +237,18 @@ const floorOriginalMaterial = floor.material;
     floor.material = new MeshReflectorMaterial(renderer, camera, scene, floor,
         {
             resolution: 512,
-            blur: [1,1],
+            blur: [3,1],
             mixStrength: 8,
             planeNormal: new THREE.Vector3(0, 1, 0),
             mixContrast: 0.26,
-            // bufferSamples: 8,
-            // distortionMap: whiteTilesNormal
+            bufferSamples: 8,
+            distortionMap: whiteTilesNormal
         });
         floor.material.setValues({
             roughnessMap:whiteTilesRoughness,
             map: whiteTilesDifuse,
             normalScale: new THREE.Vector2(0.25, 0.25),
-            // normalMap: whiteTilesNormal,
+            normalMap: whiteTilesNormal,
             emissiveMap: whiteTilesDifuse,
             emissive: new THREE.Color(0xffffff),
             emissiveIntensity: 0.62,
@@ -208,29 +259,12 @@ const floorOriginalMaterial = floor.material;
         })
         floorOriginalMaterial.dispose();
         renderer.renderLists.dispose();
+        floor.material.envMap = environmentMap
 
         addReflectorGUI2();
 
 
-        function addReflectorGUI2(){
-            if (debug){
-                const reflectorFolder2 = gui.addFolder('Reflector2')
-                reflectorFolder2.add(floor.material, 'roughness').min(0).max(2).step(0.001)
-                reflectorFolder2.add(floor.material, 'envMapIntensity').min(0).max(2).step(0.001)
-                reflectorFolder2.add(floor.material, 'emissiveIntensity').min(0).max(2).step(0.001)
-                reflectorFolder2.add(floor.material, 'metalness').min(0).max(2).step(0.001)
-                // reflectorFolder2.addColor(floor.material, 'color')
-                reflectorFolder2.add(floor.material.reflectorProps, 'mixBlur').min(0).max(7).step(0.001)
-                reflectorFolder2.add(floor.material.reflectorProps, 'mixStrength').min(0).max(200).step(0.001)
-                reflectorFolder2.add(floor.material.reflectorProps, 'depthScale').min(0).max(20).step(0.1)
-                reflectorFolder2.add(floor.material.reflectorProps, 'mixContrast').min(0).max(7).step(0.001)
-                reflectorFolder2.add(floor.material.reflectorProps, 'minDepthThreshold').min(0).max(7).step(0.001)
-                reflectorFolder2.add(floor.material.reflectorProps, 'depthToBlurRatioBias').min(0).max(7).step(0.001)
-                reflectorFolder2.add(floor.material.reflectorProps, 'maxDepthThreshold').min(-5).max(7).step(0.001).onChange(function(){
-                    floor.material.needsUpdate = true;
-                })
-            }
-        }
+
 /**
  * Animate
  */
